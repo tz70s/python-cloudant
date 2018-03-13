@@ -60,27 +60,46 @@ class Replicator(object):
 
         :returns: Replication document as a Document instance
         """
+        if source_db is None:
+            raise CloudantReplicatorException(101)
+
+        if target_db is None:
+            raise CloudantReplicatorException(102)
 
         data = dict(
             _id=repl_id if repl_id else str(uuid.uuid4()),
             **kwargs
         )
 
-        if source_db is None:
-            raise CloudantReplicatorException(101)
-        data['source'] = {'url': source_db.database_url}
-        if not source_db.admin_party:
-            data['source'].update(
-                {'headers': {'Authorization': source_db.creds['basic_auth']}}
-            )
+        # replication source
 
-        if target_db is None:
-            raise CloudantReplicatorException(102)
+        data['source'] = {'url': source_db.database_url}
+        if source_db.admin_party:
+            pass  # no credentials required
+        elif source_db.client.is_iam_authenticated:
+            data['source'].update({'auth': {
+                'iam': source_db.client.r_session.api_key
+            }})
+        else:
+            data['source'].update({'headers': {
+                'Authorization': source_db.creds['basic_auth']
+            }})
+
+        # replication target
+
         data['target'] = {'url': target_db.database_url}
-        if not target_db.admin_party:
-            data['target'].update(
-                {'headers': {'Authorization': target_db.creds['basic_auth']}}
-            )
+        if source_db.admin_party:
+            pass  # no credentials required
+        elif target_db.client.is_iam_authenticated:
+            data['target'].update({'auth': {
+                'iam': target_db.client.r_session.api_key
+            }})
+        else:
+            data['target'].update({'headers': {
+                'Authorization': target_db.creds['basic_auth']
+            }})
+
+        # add user context delegation
 
         if not data.get('user_ctx'):
             if (target_db and not target_db.admin_party or

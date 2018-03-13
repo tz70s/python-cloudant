@@ -195,6 +195,15 @@ class IAMSession(ClientSession):
         self._token_url = os.environ.get(
             'IAM_TOKEN_URL', 'https://iam.bluemix.net/identity/token')
 
+    @property
+    def api_key(self):
+        """
+        Get IAM API key.
+
+        :return: IAM API key.
+        """
+        return self._api_key
+
     def login(self):
         """
         Perform IAM cookie based user login.
